@@ -111,7 +111,7 @@ Window {
 
         Button {
             id: playButton
-            width: 217
+            width: 200
             height: 34
             anchors.horizontalCenter: parent.horizontalCenter
             text: qsTr("Play")
@@ -126,7 +126,7 @@ Window {
 
         Button {
             id: quitButton
-            width: 217
+            width: 200
             height: 34
             anchors.horizontalCenter: parent.horizontalCenter
             text: qsTr("Quit")
@@ -136,7 +136,31 @@ Window {
 
     Column {
         anchors.bottom: parent.bottom
-        width: parent.width
+        anchors.horizontalCenter: parent.horizontalCenter
+
+        Label {
+            id: modBranchTextFieldLabel
+            color: "white"
+            text: qsTr("Mod branch:")
+            font.bold: true
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowBlur: 0.2
+            }
+        }
+
+        TextField {
+            id:  modBranchTextField
+            width: 400
+            text: launcher.modBranch
+            onTextChanged: launcher.modBranch = text
+        }
+
+        Item {
+            height: 10
+            width: parent.width
+        }
 
         Label {
             id: launchOptionsTextFieldLabel
@@ -152,7 +176,7 @@ Window {
 
         TextField {
             id: launchOptionsTextField
-            width: parent.width
+            width: 400
             focus: true
             text: launcher.customLaunchOptions
             onTextChanged: launcher.customLaunchOptions = text

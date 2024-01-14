@@ -14,6 +14,7 @@
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #undef Bool
 #endif
 
@@ -47,6 +48,8 @@ public slots:
     void toggleAddon(const QString &fileName);
     void recordInput(const QString &input);
     void changeOptions(const QStringList &options);
+    void hackFailed();
+    void hackSuccess();
 
 signals:
     void pauseMenuModeChanged(bool pauseMenuMode);
@@ -60,11 +63,12 @@ signals:
     void addonToggled();
     void bindingChanged(const QString &name, const QString &bind);
     void convarLoaded(const QString &convar, const QString &value);
+    void hackingPuzzleStarted(const QString &type);
 
 private:
     bool eventFilter(QObject *object, QEvent *event) override;
-    void runGameScript(const QString &script);
-    void runGameCommand(const QString &command);
+    void runGameScript(const QString &script, bool focusLauncher = true);
+    void runGameCommand(const QString &command, bool focusLauncher = true);
     void writeToBindingsFile(const QString &key, const QVariant &value);
     void readBindingsFile();
     void readConvarsFile();
@@ -93,6 +97,7 @@ private:
     bool gamePaused = false;
     QList<Addon> addons;
     QString recordInputName = "";
+    bool recordingInput = false;
     int saveSlot = -1;
 };
 

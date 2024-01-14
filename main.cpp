@@ -11,12 +11,17 @@
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickStyle>
 
 #include "gamemenu.h"
 #include "launcher.h"
 
 int main(int argc, char *argv[])
 {
+    qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+
+    QQuickStyle::setStyle("Fusion");
+
     QGuiApplication app(argc, argv);
     app.setOrganizationName("HLA-NoVR");
     app.setApplicationName("Launcher");
@@ -39,7 +44,6 @@ int main(int argc, char *argv[])
 
 #ifdef Q_OS_WIN
         QAudioDevice info(QMediaDevices::defaultAudioOutput());
-        qDebug() << info.channelConfiguration();
         rootContext->setContextProperty("audioWarning", info.maximumChannelCount() > 2);
 #else
         rootContext->setContextProperty("audioWarning", false);

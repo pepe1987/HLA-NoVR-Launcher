@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(HLA-NoVR-Launcher VERSION 2.1.2 LANGUAGES CXX)
+project(HLA-NoVR-Launcher VERSION 2.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Network Multimedia Concurrent)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Quick Network Multimedia Concurrent QuickControls2)
 
 qt_standard_project_setup()
 
@@ -27,8 +27,11 @@ qt_add_qml_module(HLA-NoVR-Launcher
 )
 
 # Avoid collision between executable name and QML module directory (QTBUG-98568).
-if(NOT WIN32)
-    SET(CMAKE_CXX_FLAGS "-lX11")
+if(WIN32)
+    set_target_properties(HLA-NoVR-Launcher PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" /SUBSYSTEM:WINDOWS")
+else()
+    target_link_libraries(HLA-NoVR-Launcher
+    PRIVATE X11)
     set_target_properties(HLA-NoVR-Launcher PROPERTIES
         OUTPUT_NAME HLA-NoVR-Launcher-Linux
     )
@@ -43,7 +46,7 @@ set_target_properties(HLA-NoVR-Launcher PROPERTIES
 )
 
 target_link_libraries(HLA-NoVR-Launcher
-    PRIVATE Qt6::Quick Qt6::Network Qt6::Multimedia Qt6::Concurrent
+    PRIVATE Qt6::Quick Qt6::Network Qt6::Multimedia Qt6::Concurrent Qt6::QuickControls2
 )
 
 # Install the executable into "${CMAKE_INSTALL_PREFIX}/bin".

@@ -65,9 +65,11 @@ void GameMenu::gameStarted(QQuickWindow *w)
     readConvarsFile();
 
     window = w;
+    window->installEventFilter(this);
 
 #ifdef Q_OS_WIN
     thisWindow = (HWND)window->winId();
+    window->setProperty("visible", true);
 #else
     thisWindow = window->winId();
 #endif
@@ -97,11 +99,11 @@ void GameMenu::update()
                                     (rect.right - rect.left) / window->devicePixelRatio(),
                                     (rect.bottom - rect.top) / window->devicePixelRatio());
 #else
-            int windowTopLeft[2];
-            XTranslateCoordinates(display, targetWindow, XDefaultRootWindow(display), 0, 0, &windowTopLeft[0], &windowTopLeft[1], &thisWindow);
-            XWindowAttributes windowAttributes;
-            XGetWindowAttributes(display, targetWindow, &windowAttributes);
-            if (windowAttributes.width != 0) {
+            if (window_from_name("Half-Life: Alyx") != 0) {
+                int windowTopLeft[2];
+                XTranslateCoordinates(display, targetWindow, XDefaultRootWindow(display), 0, 0, &windowTopLeft[0], &windowTopLeft[1], &thisWindow);
+                XWindowAttributes windowAttributes;
+                XGetWindowAttributes(display, targetWindow, &windowAttributes);
                 window->setGeometry(windowTopLeft[0], windowTopLeft[1], windowAttributes.width, windowAttributes.height);
 #endif
             } else {
@@ -126,7 +128,7 @@ void GameMenu::update()
                     if (gamePaused) {
                         gamePaused = false;
                         window->setFlag(Qt::WindowTransparentForInput, true);
-                        runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause");
+                        runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause", false);
                         emit visibilityStateChanged(VisibilityState::HUD);
                     } else {
                         gamePaused = true;
@@ -152,16 +154,15 @@ void GameMenu::update()
 
 #ifdef Q_OS_WIN
             SetWindowLongPtr(thisWindow, GWLP_HWNDPARENT, (LONG_PTR)targetWindow);
-            window->show();
-            window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
             SetForegroundWindow(targetWindow);
 #else
-            window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
             XSetTransientForHint(display, thisWindow, targetWindow);
-            unsigned char data = 1;
-            XChangeProperty(display, thisWindow, XInternAtom(display, "GAMESCOPE_EXTERNAL_OVERLAY", False), XA_CARDINAL, 32,
-                            PropModeReplace, &data, 1);
+            if (QString(qgetenv("XDG_CURRENT_DESKTOP")) == "gamescope") {
+                window->setFlag(Qt::Popup, true);
+            }
+            window->show();
 #endif
+            window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
 
             QFuture<void> future = QtConcurrent::run([this]{
                 bool skipBuffered = true;
@@ -226,7 +227,7 @@ void GameMenu::update()
                                 if (match.hasMatch()) {
                                     emit convarLoaded("skill", match.captured(1));
                                 } else {
-                                    QStringList result = resultString.split("[MainMenu] ");
+                                    QStringList result = resultString.split("[GameMenu] ");
                                     if (result.size() > 1) {
                                         if (result.at(1) == "main_menu_mode") {
                                             pauseMenuMode = false;
@@ -253,16 +254,21 @@ void GameMenu::update()
                                                 emit noSaveFilesDetected();
                                             }
 
-                                            // Get list of addon, reset save slot
+                                            // Get list of addons, reset save slot
                                             addons.clear();
-                                            runGameScript("print(\"[MainMenu] addon_list\");SendToConsole(\"addon_list;save_clear_subdirectory\")");
+                                            runGameScript("print(\"[GameMenu] addon_list\");SendToConsole(\"addon_list;save_clear_subdirectory\")");
                                         } else if (result.at(1) == "pause_menu_mode") {
                                             pauseMenuMode = true;
                                             loadingMode = false;
                                             window->setFlag(Qt::WindowTransparentForInput, true);
+                                            runGameScript(" ", false);
                                             emit visibilityStateChanged(VisibilityState::HUD);
                                         } else if (result.at(1) == "addon_list") {
                                             listingAddons = true;
+                                        } else if (result.at(1).startsWith("hacking_puzzle_")) {
+                                            emit hackingPuzzleStarted(result.at(1).split("_").last());
+                                            window->setFlag(Qt::WindowTransparentForInput, false);
+                                            runGameCommand("gameui_preventescape;gameui_allowescapetoshow;gameui_activate;mouse_disableinput 1");
                                         } else {
                                             result = result.at(1).split(" ");
                                             if (result.at(0) == "player_health") {
@@ -281,7 +287,7 @@ void GameMenu::update()
     }
 }
 
-void GameMenu::runGameScript(const QString &script)
+void GameMenu::runGameScript(const QString &script, bool focusLauncher)
 {
     QFile file(settings.value("installLocation").toString() + "/game/hlvr/scripts/vscripts/main_menu_exec.lua");
     file.open(QIODevice::WriteOnly | QIODevice::Text);
@@ -289,16 +295,34 @@ void GameMenu::runGameScript(const QString &script)
     out << script;
     file.close();
 #ifdef Q_OS_WIN
-    SendMessage(targetWindow, WM_KEYDOWN, VK_F24, 0);
-    SendMessage(targetWindow, WM_KEYUP, VK_F24, 0);
+    SendMessage(targetWindow, WM_KEYDOWN, VK_PAUSE, 0);
+    SendMessage(targetWindow, WM_KEYUP, VK_PAUSE, 0);
 #else
-    QProcess::startDetached("xdotool", {"key", "F24"});
+    QProcess p;
+    p.setProgram("xdotool");
+    p.setArguments({"search", "--desktop", "0", "--name", "Half-Life: Alyx", "windowactivate"});
+    p.start();
+    p.waitForFinished();
+    p.setArguments({"search", "--desktop", "0", "--name", "Half-Life: Alyx", "windowfocus"});
+    p.start();
+    p.waitForFinished();
+    p.setArguments({"key", "Pause"});
+    p.start();
+    p.waitForFinished();
+    if (focusLauncher) {
+        p.setArguments({"search", "--desktop", "0", "--class", "Launcher", "windowactivate"});
+        p.start();
+        p.waitForFinished();
+        p.setArguments({"search", "--desktop", "0", "--class", "Launcher", "windowfocus"});
+        p.start();
+        p.waitForFinished();
+    }
 #endif
 }
 
-void GameMenu::runGameCommand(const QString &command)
+void GameMenu::runGameCommand(const QString &command, bool focusLauncher)
 {
-    runGameScript("SendToConsole(\"" + command + "\")");
+    runGameScript("SendToConsole(\"" + command + "\")", focusLauncher);
 }
 
 void GameMenu::writeToBindingsFile(const QString &key, const QVariant &value)
@@ -409,7 +433,7 @@ void GameMenu::buttonPlayClicked()
 #endif
             gamePaused = false;
             window->setFlag(Qt::WindowTransparentForInput, true);
-            runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause");
+            runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause", false);
             emit visibilityStateChanged(VisibilityState::HUD);
         }
     } else {
@@ -478,7 +502,7 @@ void GameMenu::buttonSaveGameClicked()
 #endif
         gamePaused = false;
         window->setFlag(Qt::WindowTransparentForInput, true);
-        runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause;save_manual");
+        runGameCommand("gameui_allowescape;gameui_preventescapetoshow;gameui_hide;r_drawvgui 1;unpause;save_manual", false);
         emit visibilityStateChanged(VisibilityState::HUD);
     }
 }
@@ -564,7 +588,7 @@ void GameMenu::toggleAddon(const QString &fileName)
 void GameMenu::recordInput(const QString &inputName)
 {
     recordInputName = inputName;
-    window->installEventFilter(this);
+    recordingInput = true;
     window->setFlag(Qt::WindowDoesNotAcceptFocus, false);
 #ifdef Q_OS_WIN
     SetFocus(thisWindow);
@@ -586,6 +610,8 @@ void GameMenu::changeOptions(const QStringList &options)
                 writeToBindingsFile("FOV", command.split(" ").at(1).toFloat());
             } else if (command.startsWith("skill")) {
                 writeToSaveCfg("setting.skill", command.split(" ").at(1));
+            } else if (command.startsWith("commentary")) {
+                writeToSaveCfg("setting.commentary", command.split(" ").at(1));
             }
         }
 
@@ -593,11 +619,23 @@ void GameMenu::changeOptions(const QStringList &options)
     }
 }
 
+void GameMenu::hackFailed()
+{
+    runGameCommand("novr_hacking_puzzle_failed;gameui_allowescape;gameui_preventescapetoshow;gameui_hide;mouse_disableinput 0", false);
+    window->setFlag(Qt::WindowTransparentForInput, true);
+}
+
+void GameMenu::hackSuccess()
+{
+    runGameCommand("novr_hacking_puzzle_success;gameui_allowescape;gameui_preventescapetoshow;gameui_hide;mouse_disableinput 0", false);
+    window->setFlag(Qt::WindowTransparentForInput, true);
+}
+
 bool GameMenu::eventFilter(QObject *object, QEvent *event)
 {
 #pragma push_macro("KeyPress")
 #undef KeyPress
-    if (event->type() == QEvent::KeyPress) {
+    if (event->type() == QEvent::KeyPress && recordingInput) {
 #pragma pop_macro("KeyPress")
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         QString key = keyEvent->text();
@@ -637,8 +675,10 @@ bool GameMenu::eventFilter(QObject *object, QEvent *event)
             key = "RIGHTARROW";
         } else if (keyNumber == Qt::Key_Delete) {
             key = "DEL";
-        } else if (keyNumber >= Qt::Key_F1 && keyNumber <= Qt::Key_F23) {
+        } else if (keyNumber >= Qt::Key_F1 && keyNumber <= Qt::Key_F24) {
             key = "F" + QString::number(keyNumber - 0x0100002F);
+        } else if (keyNumber == Qt::Key_Backslash) {
+            key = "\\\\";
         } else {
             if (key.isEmpty()) {
                 key = "UNSUPPORTED";
@@ -648,30 +688,33 @@ bool GameMenu::eventFilter(QObject *object, QEvent *event)
         emit bindingChanged(recordInputName, key);
         writeToBindingsFile(recordInputName, key);
 
-        window->removeEventFilter(this);
+        recordingInput = false;
         window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
-#ifdef Q_OS_WIN
-        SetFocus(targetWindow);
-#endif
     } else if (event->type() == QEvent::MouseButtonPress) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-        int button = mouseEvent->button();
-        if (button == Qt::MiddleButton) {
-            button = 3;
-        } else if (button == Qt::BackButton) {
-            button = 4;
-        } else if (button == Qt::ForwardButton) {
-            button = 5;
-        }
-        QString buttonString = "MOUSE" + QString::number(button);
-        emit bindingChanged(recordInputName, buttonString);
-        writeToBindingsFile(recordInputName, buttonString);
 
-        window->removeEventFilter(this);
-        window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
+        if (recordingInput) {
+            int button = mouseEvent->button();
+            if (button == Qt::MiddleButton) {
+                button = 3;
+            } else if (button == Qt::BackButton) {
+                button = 4;
+            } else if (button == Qt::ForwardButton) {
+                button = 5;
+            }
+            QString buttonString = "MOUSE" + QString::number(button);
+            emit bindingChanged(recordInputName, buttonString);
+            writeToBindingsFile(recordInputName, buttonString);
+
+            recordingInput = false;
+            window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
+        }
+
 #ifdef Q_OS_WIN
+        SetForegroundWindow(targetWindow);
         SetFocus(targetWindow);
 #endif
     }
+
     return false;
 }

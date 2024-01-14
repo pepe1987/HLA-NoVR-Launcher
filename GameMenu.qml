@@ -5,8 +5,8 @@ import QtQuick.Layouts
 
 Window {
     id: gameMenuWindow
-    visible: true
-    flags: Qt.FramelessWindowHint | Qt.Popup
+    visible: false
+    flags: Qt.FramelessWindowHint
     color: "transparent"
 
     Component.onCompleted: gameMenu.gameStarted(this)
@@ -44,7 +44,7 @@ Window {
                     savesListView.visible = false;
                     chaptersListView.visible = false;
                     savesModel.clear();
-                    savesModel.append({ saveName: "Cancel", saveFileName: "cancel" });
+                    savesModel.append({ saveName: "Cancel", saveDateTime: "", saveFileName: "cancel" });
                     break;
                 case 3: // MainMenu
                     if (chaptersListView.visible) {
@@ -65,8 +65,8 @@ Window {
                     savesModel.append({ saveName: "Cancel", saveDateTime: "", saveFileName: "cancel" });
                     onAddonToggled();
                     addonMapsModel.clear();
-                    addonMapsModel.append({ chapterName: "Cancel", chapterMapName: "cancel", mapEnabled: true });
-                    addonMapsModel.append({ chapterName: "Original Game", chapterMapName: "original_game", mapEnabled: true });
+                    addonMapsModel.append({ chapterNumber: "", chapterName: "Cancel", chapterMapName: "cancel", mapEnabled: true });
+                    addonMapsModel.append({ chapterNumber: "", chapterName: "Original Game", chapterMapName: "original_game", mapEnabled: true });
                     break;
             }
         }
@@ -97,6 +97,10 @@ Window {
             addonsModel.append({ addonName: "Workshop", addonFileName: "workshop" });
         }
         function onBindingChanged(inputName, bind) {
+            if (bind === "\\\\") {
+                bind = "\\";
+            }
+
             switch (inputName) {
                 case "MOUSE_SENSITIVITY":
                     mouseSensitivity.value = bind;
@@ -192,9 +196,20 @@ Window {
                     buttonZoom.text = bind;
                     buttonZoom.enabled = true;
                     break;
+                case "USE_HEALTHPEN":
+                    buttonUseHealthPen.text = bind;
+                    buttonUseHealthPen.enabled = true;
+                    break;
+                case "DROP_ITEM":
+                    buttonUseHealthPen.text = bind;
+                    buttonUseHealthPen.enabled = true;
+                    break;
+                case "UNEQUIP_WEARABLE":
+                    buttonUseHealthPen.text = bind;
+                    buttonUseHealthPen.enabled = true;
+                    break;
             }
         }
-
         function onConvarLoaded(convar, value) {
             switch (convar) {
                 case "snd_gain":
@@ -226,6 +241,13 @@ Window {
                     break;
             }
         }
+        function onHackingPuzzleStarted(type) {
+            switch (type) {
+                case "trace":
+                    hackingPuzzleTrace.visible = true;
+                    break;
+            }
+        }
     }
 
     ListModel {
@@ -236,43 +258,61 @@ Window {
         id: savesListView
         anchors.top: menu.top
         anchors.bottom: parent.bottom
-        width: 200
         anchors.horizontalCenter: parent.horizontalCenter
+        width: 400
+        spacing: 5
         model: savesModel
         delegate: Button {
-            width: 200
+            width: 400
             contentItem: Column {
-                Label {
+                Text {
+                    width: parent.width
                     font.bold: saveFileName !== "cancel"
                     text: saveName
-                    verticalAlignment: saveFileName === "cancel" ? Text.AlignHCenter : Text.AlignLeft
+                    horizontalAlignment: (saveFileName === "cancel") ? Text.AlignHCenter : Text.AlignLeft
                 }
-                Label {
+                Text {
                     visible: saveFileName !== "cancel"
                     text: saveDateTime
-                    verticalAlignment: Text.AlignLeft
+                    horizontalAlignment: Text.AlignLeft
                 }
             }
             onClicked: gameMenu.loadSave(saveFileName)
         }
     }
 
+    RowLayout {
+        visible: chaptersListView.visible
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+
+        Switch {
+            id: switchCommentary
+            onClicked: checked ? gameMenu.changeOptions(["commentary 1"]) : gameMenu.changeOptions(["commentary 0"])
+        }
+
+        Label {
+            color: "white"
+            text: qsTr("Developer Commentary (Spoilers)")
+        }
+    }
+
     ListModel {
         id: chaptersModel
 
-        ListElement { chapterName: "Cancel"; chapterMapName: "cancel"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Addon Maps"; chapterMapName: "addon_maps"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Entanglement"; chapterMapName: "a1_intro_world"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "The Quarantine Zone"; chapterMapName: "a2_quarantine_entrance"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Is or Will Be"; chapterMapName: "a2_headcrabs_tunnel"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Superweapon"; chapterMapName: "a3_station_street"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "The Northern Star"; chapterMapName: "a3_hotel_lobby_basement"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Arms Race"; chapterMapName: "a3_c17_processing_plant"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Jeff"; chapterMapName: "a3_distillery"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Captivity"; chapterMapName: "a4_c17_zoo"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Revelations"; chapterMapName: "a4_c17_tanker_yard"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Breaking and Entering"; chapterMapName: "a4_c17_water_tower"; addonMap: false; mapEnabled: true; }
-        ListElement { chapterName: "Point Extraction"; chapterMapName: "a5_vault"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: ""; chapterName: "Cancel"; chapterMapName: "cancel"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: ""; chapterName: "Addon Maps"; chapterMapName: "addon_maps"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 1"; chapterName: "Entanglement"; chapterMapName: "a1_intro_world"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 2"; chapterName: "The Quarantine Zone"; chapterMapName: "a2_quarantine_entrance"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 3"; chapterName: "Is or Will Be"; chapterMapName: "a2_headcrabs_tunnel"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 4"; chapterName: "Superweapon"; chapterMapName: "a3_station_street"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 5"; chapterName: "The Northern Star"; chapterMapName: "a3_hotel_lobby_basement"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 6"; chapterName: "Arms Race"; chapterMapName: "a3_c17_processing_plant"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 7"; chapterName: "Jeff"; chapterMapName: "a3_distillery"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 8"; chapterName: "Captivity"; chapterMapName: "a4_c17_zoo"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 9"; chapterName: "Revelations"; chapterMapName: "a4_c17_tanker_yard"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 10"; chapterName: "Breaking and Entering"; chapterMapName: "a4_c17_water_tower"; addonMap: false; mapEnabled: true; }
+        ListElement { chapterNumber: "Chapter 11"; chapterName: "Point Extraction"; chapterMapName: "a5_vault"; addonMap: false; mapEnabled: true; }
     }
 
     ListModel {
@@ -284,13 +324,26 @@ Window {
         visible: false
         anchors.top: menu.top
         anchors.bottom: parent.bottom
-        width: 200
         anchors.horizontalCenter: parent.horizontalCenter
+        width: 400
+        spacing: 5
         model: chaptersModel
         delegate: Button {
             enabled: mapEnabled
-            width: 200
-            text: chapterName
+            width: 400
+            contentItem: Column {
+                Text {
+                    visible: chapterNumber !== ""
+                    width: parent.width
+                    font.bold: true
+                    text: chapterNumber
+                }
+                Text {
+                    width: parent.width
+                    text: chapterName
+                    horizontalAlignment: (chapterNumber === "") ? Text.AlignHCenter : Text.AlignLeft
+                }
+            }
             onClicked: function() {
                 if (chapterMapName === "addon_maps") {
                     chaptersListView.model = addonMapsModel
@@ -312,11 +365,12 @@ Window {
         visible: false
         anchors.top: menu.top
         anchors.bottom: parent.bottom
-        width: 200
+        width: 400
+        spacing: 5
         anchors.horizontalCenter: parent.horizontalCenter
         model: addonsModel
         delegate: Button {
-            width: 200
+            width: 400
             text: addonName
             onClicked: gameMenu.toggleAddon(addonFileName)
         }
@@ -335,16 +389,18 @@ Window {
         }
     }
 
-    ColumnLayout {
+    Column {
         id: menu
         visible: false
-        width: 100
-        height: 100
+        width: 200
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: -60
+        spacing: 5
 
         Button {
             id: buttonPlay
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Continue")
             Layout.fillWidth: true
             onClicked: gameMenu.buttonPlayClicked();
@@ -352,7 +408,8 @@ Window {
 
         Button {
             id: buttonSaveGame
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Save Game")
             Layout.fillWidth: true
             onClicked: gameMenu.buttonSaveGameClicked();
@@ -360,7 +417,8 @@ Window {
 
         Button {
             id: buttonLoadGame
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Load Game")
             Layout.fillWidth: true
             onClicked: function() {
@@ -372,7 +430,8 @@ Window {
 
         Button {
             id: buttonNewGmae
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("New Game")
             Layout.fillWidth: true
             onClicked: gameMenu.buttonNewGameClicked();
@@ -380,7 +439,8 @@ Window {
 
         Button {
             id: buttonOptions
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Options")
             Layout.fillWidth: true
             onClicked: function() {
@@ -392,7 +452,8 @@ Window {
 
         Button {
             id: buttonMainMenu
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Main Menu")
             Layout.fillWidth: true
             onClicked: gameMenu.buttonMainMenuClicked()
@@ -400,7 +461,8 @@ Window {
 
         Button {
             id: buttonAddons
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Addons")
             Layout.fillWidth: true
             onClicked: function() {
@@ -412,7 +474,8 @@ Window {
 
         Button {
             id: buttonQuit
-            width: 50
+            width: 200
+            height: 34
             text: qsTr("Quit")
             Layout.fillWidth: true
             onClicked: gameMenu.buttonQuitClicked()
@@ -497,7 +560,6 @@ Window {
                         Label {
                             color: "white"
                             text: qsTr("Story")
-                            Layout.topMargin: -10
                         }
 
                         RadioButton {
@@ -508,7 +570,6 @@ Window {
                         Label {
                             color: "white"
                             text: qsTr("Easy")
-                            Layout.topMargin: -10
                         }
 
                         RadioButton {
@@ -519,7 +580,6 @@ Window {
                         Label {
                             color: "white"
                             text: qsTr("Normal")
-                            Layout.topMargin: -10
                         }
 
                         RadioButton {
@@ -530,7 +590,6 @@ Window {
                         Label {
                             color: "white"
                             text: qsTr("Hard")
-                            Layout.topMargin: -10
                         }
                     }
                 }
@@ -978,6 +1037,57 @@ Window {
                                 gameMenu.recordInput("ZOOM")
                             }
                         }
+
+                        Label {
+                            color: "white"
+                            text: qsTr("Use Health Pen (Wrist Pockets)")
+                            Layout.alignment: Qt.AlignRight
+                        }
+
+                        Button {
+                            id: buttonUseHealthPen
+                            text: "B"
+                            Layout.preferredWidth: 100
+                            onClicked: function() {
+                                enabled = false;
+                                text = "...";
+                                gameMenu.recordInput("USE_HEALTHPEN")
+                            }
+                        }
+
+                        Label {
+                            color: "white"
+                            text: qsTr("Drop Item (Wrist Pockets)")
+                            Layout.alignment: Qt.AlignRight
+                        }
+
+                        Button {
+                            id: buttonDropItem
+                            text: "X"
+                            Layout.preferredWidth: 100
+                            onClicked: function() {
+                                enabled = false;
+                                text = "...";
+                                gameMenu.recordInput("DROP_ITEM")
+                            }
+                        }
+
+                        Label {
+                            color: "white"
+                            text: qsTr("Unequip Wearable")
+                            Layout.alignment: Qt.AlignRight
+                        }
+
+                        Button {
+                            id: buttonUnequipWearable
+                            text: "U"
+                            Layout.preferredWidth: 100
+                            onClicked: function() {
+                                enabled = false;
+                                text = "...";
+                                gameMenu.recordInput("UNEQUIP_WEARABLE")
+                            }
+                        }
                     }
                 }
 
@@ -1164,5 +1274,181 @@ Window {
         color: "red"
         anchors.left: parent.left
         anchors.bottom: parent.bottom
+    }
+
+    Item {
+        id: hackingPuzzleTrace
+        visible: false
+        anchors.centerIn: parent
+        width: 500
+        height: 500
+
+        property real done: 0
+
+        property int circleCount: 10
+        property real circleRadius: 20
+        property real minDistance: 100
+
+        ListModel {
+            id: circlesModel
+        }
+
+        Component.onCompleted: generateCircles();
+
+        onVisibleChanged: {
+            if (!visible) {
+                done = 0;
+                goal1.x = 0;
+                goal1.y = 0;
+                mouseArea1.drag.target = goal1;
+                goal2.x = width - circleRadius * 2;
+                goal2.y = height - circleRadius * 2;
+                mouseArea2.drag.target = goal2;
+            }
+        }
+
+        function generateRandomPosition() {
+            return {
+                x: Math.random() * (hackingPuzzleTrace.width - 2 * circleRadius) + circleRadius,
+                y: Math.random() * (hackingPuzzleTrace.height - 2 * circleRadius) + circleRadius
+            };
+        }
+
+        function distanceBetweenPoints(point1, point2) {
+            return Math.sqrt(Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2));
+        }
+
+        function generateValidPosition() {
+            var newCirclePosition;
+            do {
+                newCirclePosition = generateRandomPosition();
+            } while (positionIsValid(newCirclePosition));
+
+            circlesModel.append({x: newCirclePosition.x, y: newCirclePosition.y});
+        }
+
+        function positionIsValid(newPosition) {
+            for (var i = 0; i < circlesModel.count; ++i) {
+                var existingPosition = {x: circlesModel.get(i).x, y: circlesModel.get(i).y};
+                if (distanceBetweenPoints(newPosition, existingPosition) < minDistance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function generateCircles() {
+            //circlesModel.append({x: 0, y: 0});
+            //circlesModel.append({x: parent.width - parent.circleRadius * 2, y: parent.height - parent.circleRadius * 2});
+            for (var i = 0; i < circleCount; ++i) {
+                generateValidPosition();
+            }
+            //circlesModel.remove(0);
+            //circlesModel.remove(0);
+        }
+
+        Repeater {
+            id: repeater
+            model: circlesModel
+
+            Rectangle {
+                width: parent.circleRadius * 2
+                height: parent.circleRadius * 2
+                radius: parent.circleRadius
+                color: "red"
+                x: model.x - parent.circleRadius
+                y: model.y - parent.circleRadius
+            }
+        }
+
+        Rectangle {
+            id: goal1
+            width: parent.circleRadius * 2
+            height: parent.circleRadius * 2
+            radius: parent.circleRadius
+            color: "blue"
+            x: 0
+            y: 0
+
+            MouseArea {
+                id: mouseArea1
+                anchors.fill: parent
+                drag.target: parent
+                drag.axis: Drag.XandYAxis
+                drag.minimumX: 0
+                drag.maximumX: hackingPuzzleTrace.width - hackingPuzzleTrace.circleRadius * 2
+                drag.minimumY: 0
+                drag.maximumY: hackingPuzzleTrace.height - hackingPuzzleTrace.circleRadius * 2
+                onPositionChanged: {
+                    if (hackingPuzzleTrace.done === 0) {
+                        if (Math.hypot(parent.x-goal2.x, parent.y-goal2.y) <= (parent.width)) {
+                            hackingPuzzleTrace.done = 1;
+                            drag.target = null;
+                        } else {
+                            for (var i = 0; i < hackingPuzzleTrace.circleCount; i++) {
+                                if (Math.hypot(parent.x-repeater.itemAt(i).x, parent.y-repeater.itemAt(i).y) <= (parent.width)) {
+                                    hackingPuzzleTrace.done = 2;
+                                    drag.target = null;
+                                }
+                            }
+                        }
+                    }
+                }
+                onReleased: {
+                    if (hackingPuzzleTrace.done === 1) {
+                        hackingPuzzleTrace.visible = false;
+                        gameMenu.hackSuccess();
+                    } else if (hackingPuzzleTrace.done === 2) {
+                        hackingPuzzleTrace.visible = false;
+                        gameMenu.hackFailed();
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: goal2
+            width: parent.circleRadius * 2
+            height: parent.circleRadius * 2
+            radius: parent.circleRadius
+            color: "blue"
+            x: parent.width - parent.circleRadius * 2
+            y: parent.height - parent.circleRadius * 2
+
+            MouseArea {
+                id: mouseArea2
+                anchors.fill: parent
+                drag.target: parent
+                drag.axis: Drag.XandYAxis
+                drag.minimumX: 0
+                drag.maximumX: hackingPuzzleTrace.width - hackingPuzzleTrace.circleRadius * 2
+                drag.minimumY: 0
+                drag.maximumY: hackingPuzzleTrace.height - hackingPuzzleTrace.circleRadius * 2
+                onPositionChanged: {
+                    if (hackingPuzzleTrace.done === 0) {
+                        if (Math.hypot(parent.x-goal1.x, parent.y-goal1.y) <= (parent.width)) {
+                            hackingPuzzleTrace.done = 1;
+                            drag.target = null;
+                        } else {
+                            for (var i = 0; i < hackingPuzzleTrace.circleCount; i++) {
+                                if (Math.hypot(parent.x-repeater.itemAt(i).x, parent.y-repeater.itemAt(i).y) <= (parent.width)) {
+                                    hackingPuzzleTrace.done = 2;
+                                    drag.target = null;
+                                }
+                            }
+                        }
+                    }
+                }
+                onReleased: {
+                    if (hackingPuzzleTrace.done === 1) {
+                        hackingPuzzleTrace.visible = false;
+                        gameMenu.hackSuccess();
+                    } else if (hackingPuzzleTrace.done === 2) {
+                        hackingPuzzleTrace.visible = false;
+                        gameMenu.hackFailed();
+                    }
+                }
+            }
+        }
     }
 }
